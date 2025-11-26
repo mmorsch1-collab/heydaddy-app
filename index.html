@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daddy, what are we doing today?</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="main-container">
+        
+        <!-- Short Form Section -->
+        <div id="formSection" class="form-section">
+            <div class="header">
+                <h1>Daddy, what are we doing today?</h1>
+                <p class="subtitle">Find fun places to go with your kids, instantly.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="agesInput">Kids' Ages (comma-separated)</label>
+                <input type="text" id="agesInput" placeholder="e.g. 4, 7" class="form-input">
+                <div class="error-message" id="agesError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="locationInput">Your Location</label>
+                <input type="text" id="locationInput" placeholder="City or zip code" class="form-input">
+                <div class="error-message" id="locationError"></div>
+            </div>
+
+            <!-- More Options Toggle -->
+            <div class="more-options-toggle" id="moreOptionsToggle">
+                <span id="moreOptionsText">More options</span>
+                <span class="caret" id="moreOptionsCaret">▼</span>
+            </div>
+
+            <!-- Optional Filters Group -->
+            <div class="optional-filters" id="optionalFilters">
+                <div class="form-group">
+                    <label for="indoorOutdoor">Indoor or outdoor?</label>
+                    <select id="indoorOutdoor" class="form-select">
+                        <option value="">Any</option>
+                        <option value="indoor">Indoor</option>
+                        <option value="outdoor">Outdoor</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="costPreference">Cost preference</label>
+                    <select id="costPreference" class="form-select">
+                        <option value="">Any</option>
+                        <option value="free">Free</option>
+                        <option value="paid">Paid</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="timeAvailable">Time available</label>
+                    <select id="timeAvailable" class="form-select">
+                        <option value="">Any</option>
+                        <option value="under-hour">under an hour</option>
+                        <option value="couple-hours">a couple hours</option>
+                        <option value="make-day">let's make it a day</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="distance">Distance</label>
+                    <select id="distance" class="form-select">
+                        <option value="">Any distance</option>
+                        <option value="15-min">Less than 15 mins drive</option>
+                        <option value="30-min">Less than 30 mins drive</option>
+                        <option value="1-hour">Up to 1 hour drive</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Get Ideas Button in Form -->
+            <div class="form-button-group">
+                <button id="getIdeasBtn" class="primary-button">Get ideas</button>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="results-section hidden">
+            <!-- Loading State -->
+            <div id="loadingState" class="loading-state hidden">
+                <div class="spinner"></div>
+                <p id="loadingText">Finding great places for your family<span class="loading-dots"></span></p>
+            </div>
+
+            <!-- Results Grid -->
+            <div id="resultsGrid" class="results-grid">
+                <!-- Place cards will be dynamically generated here -->
+            </div>
+
+            <!-- No Results State -->
+            <div id="noResultsState" class="no-results-state hidden">
+                <p>No places found. Try adjusting your location or search criteria.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Bottom Action Bar (Results Mode Only) -->
+    <div id="floatingActionBar" class="floating-action-bar hidden">
+        <!-- Results Mode Buttons -->
+        <div id="resultsModeButtons" class="button-group">
+            <button id="startOverBtn" class="secondary-button">Start over</button>
+            <button id="showMoreBtn" class="primary-button">Show more</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

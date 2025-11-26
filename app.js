@@ -1,0 +1,666 @@
+// App State Management
+class DaddyApp {
+    constructor() {
+        this.state = {
+            show_options: false,
+            ui_mode: 'form', // 'form' or 'results'
+            currentUser: this.loadUserData(),
+            displayedPlaces: [], // Track shown places for exclusion
+            lastSearchParams: {} // Store search criteria for "Show more"
+        };
+        
+        this.initializeApp();
+    }
+
+    // Initialize the app
+    initializeApp() {
+        this.bindEvents();
+        this.loadUserDataToForm();
+        this.updateUI();
+    }
+
+    // Load user data from localStorage
+    loadUserData() {
+        return {
+            kids_ages: localStorage.getItem('daddy_app_kids_ages') || '',
+            home_location: localStorage.getItem('daddy_app_home_location') || ''
+        };
+    }
+
+    // Save user data to localStorage
+    saveUserData() {
+        var agesInput = document.getElementById('agesInput');
+        var locationInput = document.getElementById('locationInput');
+        
+        this.state.currentUser.kids_ages = agesInput.value;
+        this.state.currentUser.home_location = locationInput.value;
+        
+        localStorage.setItem('daddy_app_kids_ages', this.state.currentUser.kids_ages);
+        localStorage.setItem('daddy_app_home_location', this.state.currentUser.home_location);
+    }
+
+    // Load saved user data into form inputs
+    loadUserDataToForm() {
+        document.getElementById('agesInput').value = this.state.currentUser.kids_ages;
+        document.getElementById('locationInput').value = this.state.currentUser.home_location;
+    }
+
+    // Bind all event listeners
+    bindEvents() {
+        var self = this;
+        
+        // More options toggle
+        document.getElementById('moreOptionsToggle').addEventListener('click', function() {
+            self.toggleMoreOptions();
+        });
+
+        // Get ideas button (form mode)
+        document.getElementById('getIdeasBtn').addEventListener('click', function() {
+            self.handleGetIdeas();
+        });
+
+        // Start over button (results mode)
+        document.getElementById('startOverBtn').addEventListener('click', function() {
+            self.handleStartOver();
+        });
+
+        // Show more button (results mode) 
+        document.getElementById('showMoreBtn').addEventListener('click', function() {
+            self.handleShowMore();
+        });
+    }
+
+    // Toggle more options visibility
+    toggleMoreOptions() {
+        this.state.show_options = !this.state.show_options;
+        this.updateMoreOptionsUI();
+    }
+
+    // Update more options UI based on state
+    updateMoreOptionsUI() {
+        var optionalFilters = document.getElementById('optionalFilters');
+        var moreOptionsText = document.getElementById('moreOptionsText');
+        var caret = document.getElementById('moreOptionsCaret');
+
+        if (this.state.show_options) {
+            optionalFilters.classList.add('show');
+            moreOptionsText.textContent = 'Hide options';
+            caret.classList.add('rotated');
+        } else {
+            optionalFilters.classList.remove('show');
+            moreOptionsText.textContent = 'More options';
+            caret.classList.remove('rotated');
+        }
+    }
+
+    // Validate form inputs
+    validateForm() {
+        var agesInput = document.getElementById('agesInput');
+        var locationInput = document.getElementById('locationInput');
+        var agesError = document.getElementById('agesError');
+        var locationError = document.getElementById('locationError');
+
+        var isValid = true;
+
+        // Clear previous errors
+        agesError.textContent = '';
+        locationError.textContent = '';
+
+        // Validate ages
+        if (!agesInput.value.trim()) {
+            agesError.textContent = 'Please enter your kids\' ages';
+            isValid = false;
+        }
+
+        // Validate location
+        if (!locationInput.value.trim()) {
+            locationError.textContent = 'Please enter a location';
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    // Handle "Get ideas" button click
+    handleGetIdeas() {
+        var self = this;
+        
+        if (!this.validateForm()) {
+            return;
+        }
+
+        // Save user data
+        this.saveUserData();
+
+        // Switch to results mode
+        this.state.ui_mode = 'results';
+        this.updateUI();
+
+        // Scroll to results
+        this.scrollToResults();
+
+        // Perform search
+        setTimeout(function() {
+            self.performSearch();
+        }, 100);
+    }
+
+    // Handle "Start over" button click
+    handleStartOver() {
+        // Reset state
+        this.state.ui_mode = 'form';
+        this.state.displayedPlaces = [];
+        this.state.lastSearchParams = {};
+        
+        // Update UI
+        this.updateUI();
+        
+        // Scroll to form
+        this.scrollToForm();
+    }
+
+    // Handle "Show more" button click
+    handleShowMore() {
+        this.performSearch(true); // Pass true to indicate "show more" mode
+    }
+
+    // Update UI based on current state
+    updateUI() {
+        var floatingActionBar = document.getElementById('floatingActionBar');
+        var resultsSection = document.getElementById('resultsSection');
+
+        if (this.state.ui_mode === 'form') {
+            // Form mode: hide floating bar and results
+            floatingActionBar.classList.add('hidden');
+            resultsSection.classList.add('hidden');
+        } else {
+            // Results mode: show results section but keep floating bar hidden until results load
+            resultsSection.classList.remove('hidden');
+            // Note: floating bar will be shown in displayResults() after successful load
+        }
+
+        this.updateMoreOptionsUI();
+    }
+
+    // Scroll to results section
+    scrollToResults() {
+        setTimeout(function() {
+            document.getElementById('resultsSection').scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }, 100);
+    }
+
+    // Scroll to form section
+    scrollToForm() {
+        setTimeout(function() {
+            document.getElementById('formSection').scrollIntoView({
+                behavior: 'smooth',
+                block: 'start'
+            });
+        }, 100);
+    }
+
+
+    // Perform search by calling Gemini API directly
+    performSearch(isShowMore) {
+        var self = this;
+        
+        // Store search params for "show more"
+        if (!isShowMore) {
+            this.state.lastSearchParams = {
+                ages: document.getElementById('agesInput').value,
+                location: document.getElementById('locationInput').value,
+                indoorOutdoor: document.getElementById('indoorOutdoor').value,
+                costPreference: document.getElementById('costPreference').value,
+                timeAvailable: document.getElementById('timeAvailable').value,
+                distance: document.getElementById('distance').value
+            };
+            this.state.displayedPlaces = [];
+        }
+        
+        if (isShowMore) {
+            this.showMoreLoadingState();
+        } else {
+            this.showLoadingState();
+        }
+
+        // Use stored params for "show more" or current form data for new search
+        var requestData = isShowMore ? this.state.lastSearchParams : {
+            ages: document.getElementById('agesInput').value,
+            location: document.getElementById('locationInput').value,
+            indoorOutdoor: document.getElementById('indoorOutdoor').value,
+            costPreference: document.getElementById('costPreference').value,
+            timeAvailable: document.getElementById('timeAvailable').value,
+            distance: document.getElementById('distance').value
+        };
+
+        // Call Gemini API directly for local testing
+        this.callGeminiAPI(requestData)
+        .then(function(results) {
+            if (results && results.length > 0) {
+                self.displayResults(results, isShowMore);
+            } else {
+                if (isShowMore) {
+                    self.hideMoreLoadingState();
+                } else {
+                    self.showNoResults();
+                }
+            }
+        })
+        .catch(function(error) {
+            console.error('Search error:', error);
+            if (isShowMore) {
+                self.hideMoreLoadingState();
+            } else {
+                self.showNoResults();
+            }
+        });
+    }
+
+    // Call Gemini API directly (for local testing)
+    callGeminiAPI(requestData) {
+        var self = this;
+        var { ages, location, indoorOutdoor, costPreference, timeAvailable, distance } = requestData;
+
+        // Build distance constraint
+        var distanceConstraint = '';
+        if (distance) {
+            switch(distance) {
+                case '15-min':
+                    distanceConstraint = 'within a 15 minute drive of';
+                    break;
+                case '30-min':
+                    distanceConstraint = 'within a 30 minute drive of';
+                    break;
+                case '1-hour':
+                    distanceConstraint = 'within a 1 hour drive of';
+                    break;
+                default:
+                    distanceConstraint = 'near';
+            }
+        } else {
+            distanceConstraint = 'near';
+        }
+
+        // Build time availability constraint
+        var timeConstraint = '';
+        if (timeAvailable) {
+            switch(timeAvailable) {
+                case 'under-hour':
+                    timeConstraint = 'activities that can be enjoyed in under an hour';
+                    break;
+                case 'couple-hours':
+                    timeConstraint = 'activities suitable for a couple hours';
+                    break;
+                case 'make-day':
+                    timeConstraint = 'full-day activities and destinations';
+                    break;
+                default:
+                    timeConstraint = 'any amount of time';
+            }
+        } else {
+            timeConstraint = 'any amount of time';
+        }
+
+        var prompt = 'Find 5 kid-friendly places ' + distanceConstraint + ' ' + location + ' for children aged ' + ages + '. Consider ' + (costPreference || 'any cost') + ', ' + (indoorOutdoor || 'indoor or outdoor') + ', and ' + timeConstraint + ' availability. Provide a natural language description explaining why each is a good recommendation. For each place, include the official Google Maps Place ID and a valid Google Places Photos API photo_reference token if available. Return ONLY a JSON array that strictly follows the provided schema.';
+
+        var requestBody = {
+            "contents": [
+                {
+                    "parts": [
+                        {
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "responseSchema": {
+                    "type": "ARRAY",
+                    "items": {
+                        "type": "OBJECT",
+                        "properties": {
+                            "name": {
+                                "type": "STRING",
+                                "description": "The name of the place."
+                            },
+                            "description": {
+                                "type": "STRING",
+                                "description": "A brief natural language description of why this is a good recommendation for the specified ages/constraints."
+                            },
+                            "address": {
+                                "type": "STRING",
+                                "description": "The full address of the location."
+                            },
+                            "rating": {
+                                "type": "NUMBER",
+                                "description": "The user rating for the place."
+                            },
+                            "place_id": {
+                                "type": "STRING",
+                                "description": "The official Google Maps Place ID (e.g., ChIJrTLr-GyuEmsRBfyQYjg0kM0)."
+                            },
+                            "photo_reference": {
+                                "type": "STRING",
+                                "description": "A valid Google Places Photos API reference token (e.g., 'Aap_uEA7vb0DDYVJWEaX3O-AtYp3').Leave empty if no photo available."
+                            }
+                        },
+                        "required": ["name", "description", "address", "rating", "place_id"]
+                    }
+                }
+            }
+        };
+
+        // Use the API key directly for local testing
+        var apiKey = 'AIzaSyDB5PIIYxPi7cAnCSILR7sKfhUNZYySBu4';
+
+        return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' + apiKey, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Gemini API error: ' + response.status + ' - ' + response.statusText);
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            console.log('Gemini API response:', data);
+            
+            if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
+                var jsonText = data.candidates[0].content.parts[0].text;
+                console.log('JSON response text:', jsonText);
+                var results = JSON.parse(jsonText);
+                return Array.isArray(results) ? results : [results];
+            }
+
+            throw new Error('Invalid response format from Gemini API');
+        });
+    }
+
+    // Show loading state
+    showLoadingState() {
+        document.getElementById('loadingState').classList.remove('hidden');
+        document.getElementById('resultsGrid').classList.add('hidden');
+        document.getElementById('noResultsState').classList.add('hidden');
+        
+        // Start the fun loading messages
+        this.startLoadingMessages();
+    }
+
+    // Start rotating fun loading messages
+    startLoadingMessages() {
+        var messages = [
+            'Finding great places for your family',
+            'Discovering fun adventures nearby',
+            'Searching for kid-friendly spots',
+            'Looking for the perfect family outing',
+            'Finding awesome places to explore'
+        ];
+        
+        var loadingText = document.getElementById('loadingText');
+        var currentIndex = 0;
+        
+        // Clear any existing interval
+        if (this.loadingInterval) {
+            clearInterval(this.loadingInterval);
+        }
+        
+        // Set initial message
+        loadingText.innerHTML = messages[0] + '<span class="loading-dots"></span>';
+        
+        // Rotate messages every 2 seconds
+        this.loadingInterval = setInterval(function() {
+            currentIndex = (currentIndex + 1) % messages.length;
+            loadingText.innerHTML = messages[currentIndex] + '<span class="loading-dots"></span>';
+        }, 2000);
+    }
+
+    // Stop loading messages
+    stopLoadingMessages() {
+        if (this.loadingInterval) {
+            clearInterval(this.loadingInterval);
+            this.loadingInterval = null;
+        }
+    }
+
+    // Show loading state for "Show More"
+    showMoreLoadingState() {
+        var resultsGrid = document.getElementById('resultsGrid');
+        
+        // Create loading indicator for "Show More" 
+        var moreLoadingDiv = document.createElement('div');
+        moreLoadingDiv.id = 'moreLoadingState';
+        moreLoadingDiv.className = 'loading-state';
+        moreLoadingDiv.innerHTML = '<div class="spinner"></div><p>Loading more places<span class="loading-dots"></span></p>';
+        
+        resultsGrid.appendChild(moreLoadingDiv);
+        
+        // Scroll to the loading indicator so user can see it's working
+        setTimeout(function() {
+            moreLoadingDiv.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+        }, 100);
+    }
+
+    // Hide loading state for "Show More"
+    hideMoreLoadingState() {
+        var moreLoadingState = document.getElementById('moreLoadingState');
+        if (moreLoadingState) {
+            moreLoadingState.remove();
+        }
+    }
+
+    // Show no results state
+    showNoResults() {
+        this.stopLoadingMessages();
+        document.getElementById('loadingState').classList.add('hidden');
+        document.getElementById('resultsGrid').classList.add('hidden');
+        document.getElementById('noResultsState').classList.remove('hidden');
+    }
+
+    // Display search results
+    displayResults(results, isShowMore) {
+        var self = this;
+        
+        if (isShowMore) {
+            this.hideMoreLoadingState();
+        } else {
+            this.stopLoadingMessages();
+            document.getElementById('loadingState').classList.add('hidden');
+        }
+        
+        document.getElementById('noResultsState').classList.add('hidden');
+        document.getElementById('resultsGrid').classList.remove('hidden');
+
+        var resultsGrid = document.getElementById('resultsGrid');
+        
+        // Clear existing results only for new searches, not for "Show More"
+        if (!isShowMore) {
+            resultsGrid.innerHTML = '';
+            this.state.displayedPlaces = [];
+        }
+
+        // Filter out duplicates and add new results
+        var newResults = [];
+        for (var i = 0; i < results.length; i++) {
+            var place = results[i];
+            var isDuplicate = false;
+            
+            // Check if this place is already displayed
+            for (var j = 0; j < this.state.displayedPlaces.length; j++) {
+                if (this.state.displayedPlaces[j].place_id === place.place_id || 
+                    this.state.displayedPlaces[j].name === place.name) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+            
+            if (!isDuplicate) {
+                newResults.push(place);
+                this.state.displayedPlaces.push(place);
+            }
+        }
+
+        // Add new place cards
+        for (var i = 0; i < newResults.length; i++) {
+            var place = newResults[i];
+            var card = self.createPlaceCard(place);
+            resultsGrid.appendChild(card);
+        }
+
+        // Show floating action bar now that results are displayed
+        document.getElementById('floatingActionBar').classList.remove('hidden');
+
+        // Scroll to results for new searches, or scroll to new content for "Show More"
+        if (isShowMore) {
+            // Scroll to the new results area
+            var newCards = resultsGrid.querySelectorAll('.place-card');
+            if (newCards.length > 5) {
+                newCards[newCards.length - newResults.length].scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        } else {
+            this.scrollToResults();
+        }
+    }
+
+    // Create a place card element
+    createPlaceCard(place) {
+        var self = this;
+        var card = document.createElement('div');
+        card.className = 'place-card';
+        card.setAttribute('tabindex', '0'); // Make it keyboard accessible
+        
+        var clickHandler = function() {
+            self.openGoogleMaps(place);
+        };
+        
+        card.addEventListener('click', clickHandler);
+        card.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                clickHandler();
+            }
+        });
+
+        // Start with placeholder and search for photo using Google Places API
+        var imageElement = '<div class="place-image-placeholder">📍</div>';
+
+        var rating = place.rating 
+            ? '<div class="place-rating">★ ' + place.rating.toFixed(1) + '</div>'
+            : '';
+
+        var description = place.description || '';
+
+        card.innerHTML = imageElement +
+            '<div class="place-content">' +
+                '<div class="place-header">' +
+                    '<div class="place-name">' + place.name + '</div>' +
+                    rating +
+                '</div>' +
+                (description ? '<div class="place-description">' + description + '</div>' : '') +
+            '</div>';
+
+        // Search for photo using Google Places API after card is created
+        this.searchForPlacePhoto(place.name, place.address, card, place.photo_reference);
+
+        return card;
+    }
+
+    // Search for place photo using Google Places API directly
+    searchForPlacePhoto(placeName, placeAddress, cardElement, photoReference) {
+        var self = this;
+
+        // If we have a photo_reference from Gemini, use it directly
+        if (photoReference && photoReference.trim() !== '') {
+            var photoUrl = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=' + photoReference + '&key=' + this.getGoogleMapsApiKey();
+            self.updatePlaceCardWithPhoto(cardElement, placeName, photoUrl);
+            return;
+        }
+
+        // Fallback: Search for place using Google Places API Text Search
+        var query = placeAddress ? placeName + ' ' + placeAddress : placeName;
+        var searchUrl = 'https://maps.googleapis.com/maps/api/place/textsearch/json?query=' + encodeURIComponent(query) + '&key=' + this.getGoogleMapsApiKey();
+        
+        // Note: This will likely fail due to CORS, but we'll try anyway
+        fetch(searchUrl)
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Places search failed: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.results && data.results.length > 0 && data.results[0].photos && data.results[0].photos.length > 0) {
+                var photoReference = data.results[0].photos[0].photo_reference;
+                var photoUrl = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=' + photoReference + '&key=' + self.getGoogleMapsApiKey();
+                self.updatePlaceCardWithPhoto(cardElement, placeName, photoUrl);
+            }
+        })
+        .catch(function(error) {
+            console.log('Photo search failed for:', placeName, error);
+            // For local development, try using a placeholder service instead
+            self.tryPlaceholderImage(cardElement, placeName);
+        });
+    }
+
+    // Try using a placeholder image service as fallback
+    tryPlaceholderImage(cardElement, placeName) {
+        // Use a generic placeholder service that might work better
+        var placeholderUrl = 'https://via.placeholder.com/400x200/e1e8ed/666666?text=' + encodeURIComponent(placeName.substring(0, 20));
+        this.updatePlaceCardWithPhoto(cardElement, placeName, placeholderUrl);
+    }
+
+    // Update place card with photo URL (from serverless function)
+    updatePlaceCardWithPhoto(cardElement, placeName, photoUrl) {
+        var placeholder = cardElement.querySelector('.place-image-placeholder');
+        if (placeholder && photoUrl) {
+            var img = document.createElement('img');
+            img.src = photoUrl;
+            img.alt = placeName;
+            img.className = 'place-image';
+            img.loading = 'lazy';
+            
+            img.onload = function() {
+                placeholder.style.display = 'none';
+                cardElement.insertBefore(img, cardElement.firstChild);
+            };
+            
+            img.onerror = function() {
+                // Keep placeholder if image fails to load
+                console.log('Photo failed to load for:', placeName);
+            };
+        }
+    }
+
+    // Get Google Maps API key for photos
+    getGoogleMapsApiKey() {
+        // This will be set as a global variable or from environment
+        return 'AIzaSyDr4zafXO0Y5zx681q8f3XKwtRdCJ3H42I';
+    }
+
+    // Open Google Maps for a specific place using search API format
+    openGoogleMaps(place) {
+        // Use user's exact format: https://www.google.com/maps/search/?api=1&query=[name] [address]
+        var query = place.name + ' ' + place.address;
+        var mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(query);
+        window.open(mapsUrl, '_self');
+    }
+}
+
+// Initialize the app when DOM is loaded
+var app;
+document.addEventListener('DOMContentLoaded', function() {
+    app = new DaddyApp();
+});
