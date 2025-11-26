@@ -11,6 +11,9 @@
   "keywords": ["kids", "activities", "family", "places", "mobile-app"],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "devDependencies": {
     "http-server": "^14.1.1",
     "netlify-cli": "^17.10.1"

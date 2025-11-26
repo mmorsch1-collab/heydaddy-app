@@ -1,51 +1,33 @@
-// Netlify/Vercel serverless function for getting kid-friendly recommendations
+// Vercel serverless function for getting kid-friendly recommendations
 // Optimized for <3 second response times
 
-exports.handler = async (event, context) => {
+export default async function handler(req, res) {
     // Handle CORS
-    const headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS'
-    };
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
 
     // Handle preflight request
-    if (event.httpMethod === 'OPTIONS') {
-        return {
-            statusCode: 200,
-            headers,
-            body: ''
-        };
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
 
-    if (event.httpMethod !== 'POST') {
-        return {
-            statusCode: 405,
-            headers,
-            body: JSON.stringify({ error: 'Method not allowed' })
-        };
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        const requestData = JSON.parse(event.body);
+        const requestData = req.body;
         
         // Check if this is a photo search request
         if (requestData.action === 'searchPhoto') {
             const { placeName, address } = requestData;
             if (!placeName) {
-                return {
-                    statusCode: 400,
-                    headers,
-                    body: JSON.stringify({ error: 'Place name is required for photo search' })
-                };
+                return res.status(400).json({ error: 'Place name is required for photo search' });
             }
             
             const photoUrl = await searchPlacePhoto(placeName, address);
-            return {
-                statusCode: 200,
-                headers,
-                body: JSON.stringify({ photoUrl })
-            };
+            return res.status(200).json({ photoUrl });
         }
 
         // Default to recommendations request
@@ -53,33 +35,21 @@ exports.handler = async (event, context) => {
 
         // Validate required fields
         if (!ages || !location) {
-            return {
-                statusCode: 400,
-                headers,
-                body: JSON.stringify({ error: 'Ages and location are required' })
-            };
+            return res.status(400).json({ error: 'Ages and location are required' });
         }
 
         // Always use Gemini API - no fallbacks
         const results = await getGeminiRecommendations(requestData);
 
-        return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify(results)
-        };
+        return res.status(200).json(results);
 
     } catch (error) {
         console.error('Error processing request:', error);
-        return {
-            statusCode: 500,
-            headers,
-            body: JSON.stringify({ 
-                error: 'Failed to process request: ' + error.message 
-            })
-        };
+        return res.status(500).json({ 
+            error: 'Failed to process request: ' + error.message 
+        });
     }
-};
+}
 
 // Get recommendations using Google Gemini API with user's exact configuration
 async function getGeminiRecommendations(requestData) {

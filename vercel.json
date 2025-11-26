@@ -3,11 +3,11 @@
   "buildCommand": "echo 'No build needed'",
   "outputDirectory": ".",
   "env": {
-    "NODE_VERSION": "18.x"
+    "NODE_VERSION": "20.x"
   },
   "functions": {
     "api/getRecommendations.js": {
-      "runtime": "@vercel/node@3.0.7"
+      "runtime": "nodejs20.x"
     }
   },
   "routes": [
