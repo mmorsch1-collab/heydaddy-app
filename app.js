@@ -236,8 +236,8 @@ class DaddyApp {
             distance: document.getElementById('distance').value
         };
 
-        // Call Gemini API directly for local testing
-        this.callGeminiAPI(requestData)
+        // Call serverless function for recommendations
+        this.callRecommendationsAPI(requestData)
         .then(function(results) {
             if (results && results.length > 0) {
                 self.displayResults(results, isShowMore);
@@ -259,128 +259,24 @@ class DaddyApp {
         });
     }
 
-    // Call Gemini API directly (for local testing)
-    callGeminiAPI(requestData) {
-        var self = this;
-        var { ages, location, indoorOutdoor, costPreference, timeAvailable, distance } = requestData;
-
-        // Build distance constraint
-        var distanceConstraint = '';
-        if (distance) {
-            switch(distance) {
-                case '15-min':
-                    distanceConstraint = 'within a 15 minute drive of';
-                    break;
-                case '30-min':
-                    distanceConstraint = 'within a 30 minute drive of';
-                    break;
-                case '1-hour':
-                    distanceConstraint = 'within a 1 hour drive of';
-                    break;
-                default:
-                    distanceConstraint = 'near';
-            }
-        } else {
-            distanceConstraint = 'near';
-        }
-
-        // Build time availability constraint
-        var timeConstraint = '';
-        if (timeAvailable) {
-            switch(timeAvailable) {
-                case 'under-hour':
-                    timeConstraint = 'activities that can be enjoyed in under an hour';
-                    break;
-                case 'couple-hours':
-                    timeConstraint = 'activities suitable for a couple hours';
-                    break;
-                case 'make-day':
-                    timeConstraint = 'full-day activities and destinations';
-                    break;
-                default:
-                    timeConstraint = 'any amount of time';
-            }
-        } else {
-            timeConstraint = 'any amount of time';
-        }
-
-        var prompt = 'Find 5 kid-friendly places ' + distanceConstraint + ' ' + location + ' for children aged ' + ages + '. Consider ' + (costPreference || 'any cost') + ', ' + (indoorOutdoor || 'indoor or outdoor') + ', and ' + timeConstraint + ' availability. Provide a natural language description explaining why each is a good recommendation. For each place, include the official Google Maps Place ID and a valid Google Places Photos API photo_reference token if available. Return ONLY a JSON array that strictly follows the provided schema.';
-
-        var requestBody = {
-            "contents": [
-                {
-                    "parts": [
-                        {
-                            "text": prompt
-                        }
-                    ]
-                }
-            ],
-            "generationConfig": {
-                "responseMimeType": "application/json",
-                "responseSchema": {
-                    "type": "ARRAY",
-                    "items": {
-                        "type": "OBJECT",
-                        "properties": {
-                            "name": {
-                                "type": "STRING",
-                                "description": "The name of the place."
-                            },
-                            "description": {
-                                "type": "STRING",
-                                "description": "A brief natural language description of why this is a good recommendation for the specified ages/constraints."
-                            },
-                            "address": {
-                                "type": "STRING",
-                                "description": "The full address of the location."
-                            },
-                            "rating": {
-                                "type": "NUMBER",
-                                "description": "The user rating for the place."
-                            },
-                            "place_id": {
-                                "type": "STRING",
-                                "description": "The official Google Maps Place ID (e.g., ChIJrTLr-GyuEmsRBfyQYjg0kM0)."
-                            },
-                            "photo_reference": {
-                                "type": "STRING",
-                                "description": "A valid Google Places Photos API reference token (e.g., 'Aap_uEA7vb0DDYVJWEaX3O-AtYp3').Leave empty if no photo available."
-                            }
-                        },
-                        "required": ["name", "description", "address", "rating", "place_id"]
-                    }
-                }
-            }
-        };
-
-        // Use the API key directly for local testing
-        var apiKey = 'AIzaSyDB5PIIYxPi7cAnCSILR7sKfhUNZYySBu4';
-
-        return fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=' + apiKey, {
+    // Call recommendations API using serverless function
+    callRecommendationsAPI(requestData) {
+        return fetch('/api/getRecommendations', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestData)
         })
         .then(function(response) {
             if (!response.ok) {
-                throw new Error('Gemini API error: ' + response.status + ' - ' + response.statusText);
+                throw new Error('Recommendations API error: ' + response.status + ' - ' + response.statusText);
             }
             return response.json();
         })
-        .then(function(data) {
-            console.log('Gemini API response:', data);
-            
-            if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
-                var jsonText = data.candidates[0].content.parts[0].text;
-                console.log('JSON response text:', jsonText);
-                var results = JSON.parse(jsonText);
-                return Array.isArray(results) ? results : [results];
-            }
-
-            throw new Error('Invalid response format from Gemini API');
+        .then(function(results) {
+            console.log('Recommendations API response:', results);
+            return Array.isArray(results) ? results : [results];
         });
     }
 
@@ -578,7 +474,7 @@ class DaddyApp {
         return card;
     }
 
-    // Search for place photo using Google Places API directly
+    // Search for place photo using serverless function
     searchForPlacePhoto(placeName, placeAddress, cardElement, photoReference) {
         var self = this;
 
@@ -589,29 +485,35 @@ class DaddyApp {
             return;
         }
 
-        // Fallback: Search for place using Google Places API Text Search
-        var query = placeAddress ? placeName + ' ' + placeAddress : placeName;
-        var searchUrl = 'https://maps.googleapis.com/maps/api/place/textsearch/json?query=' + encodeURIComponent(query) + '&key=' + this.getGoogleMapsApiKey();
-        
-        // Note: This will likely fail due to CORS, but we'll try anyway
-        fetch(searchUrl)
+        // Use our serverless function to search for photos
+        fetch('/api/getRecommendations', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                action: 'searchPhoto',
+                placeName: placeName,
+                address: placeAddress
+            })
+        })
         .then(function(response) {
             if (!response.ok) {
-                throw new Error('Places search failed: ' + response.status);
+                throw new Error('Photo search failed: ' + response.status);
             }
             return response.json();
         })
         .then(function(data) {
-            if (data.results && data.results.length > 0 && data.results[0].photos && data.results[0].photos.length > 0) {
-                var photoReference = data.results[0].photos[0].photo_reference;
-                var photoUrl = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=' + photoReference + '&key=' + self.getGoogleMapsApiKey();
-                self.updatePlaceCardWithPhoto(cardElement, placeName, photoUrl);
+            if (data.photoUrl) {
+                self.updatePlaceCardWithPhoto(cardElement, placeName, data.photoUrl);
+            } else {
+                console.log('No photo found for:', placeName);
+                // Keep placeholder
             }
         })
         .catch(function(error) {
             console.log('Photo search failed for:', placeName, error);
-            // For local development, try using a placeholder service instead
-            self.tryPlaceholderImage(cardElement, placeName);
+            // Keep placeholder on error
         });
     }
 
