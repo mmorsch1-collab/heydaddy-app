@@ -195,11 +195,19 @@ async function searchPlacePhoto(placeName, address) {
         if (searchData.results && searchData.results.length > 0) {
             const place = searchData.results[0];
             
-            // Step 2: If place has photos, get the photo URL
+            // Step 2: If place has photos, fetch and return the actual image data
             if (place.photos && place.photos.length > 0) {
                 const photoReference = place.photos[0].photo_reference;
                 const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-                return photoUrl;
+                
+                // Fetch the actual image and convert to base64
+                const imageResponse = await fetch(photoUrl);
+                if (imageResponse.ok) {
+                    const imageBuffer = await imageResponse.arrayBuffer();
+                    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+                    const base64Image = Buffer.from(imageBuffer).toString('base64');
+                    return `data:${contentType};base64,${base64Image}`;
+                }
             }
         }
         
