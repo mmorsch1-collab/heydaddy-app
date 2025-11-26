@@ -2,6 +2,9 @@
   "version": 2,
   "buildCommand": "echo 'No build needed'",
   "outputDirectory": ".",
+  "env": {
+    "NODE_VERSION": "18.x"
+  },
   "functions": {
     "api/getRecommendations.js": {
       "runtime": "@vercel/node@3.0.7"
