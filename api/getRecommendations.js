@@ -75,28 +75,43 @@ async function getGeminiRecommendations(requestData) {
         distanceConstraint = 'near';
     }
 
-    // Build time availability constraint
-    let timeConstraint = '';
-    if (timeAvailable) {
+    // Build specific requirements only when user makes selections
+    let requirements = [];
+    
+    if (indoorOutdoor && indoorOutdoor !== '') {
+        requirements.push(`MUST be ${indoorOutdoor} activities ONLY`);
+    }
+    
+    if (costPreference && costPreference !== '') {
+        const costText = costPreference === 'free' ? 'free activities ONLY' : 'paid activities ONLY';
+        requirements.push(`MUST be ${costText}`);
+    }
+    
+    if (timeAvailable && timeAvailable !== '') {
+        let timeReq = '';
         switch(timeAvailable) {
             case 'under-hour':
-                timeConstraint = 'activities that can be enjoyed in under an hour';
+                timeReq = 'MUST be activities that can be completed in under an hour';
                 break;
             case 'couple-hours':
-                timeConstraint = 'activities suitable for a couple hours';
+                timeReq = 'MUST be activities suitable for 2-3 hours';
                 break;
             case 'make-day':
-                timeConstraint = 'full-day activities and destinations';
+                timeReq = 'MUST be full-day activities and destinations';
                 break;
-            default:
-                timeConstraint = 'any amount of time';
         }
-    } else {
-        timeConstraint = 'any amount of time';
+        requirements.push(timeReq);
     }
 
-    // Use your exact Bubble app format with template substitution
-    let prompt = `Find 5 kid-friendly places ${distanceConstraint} ${location} for children aged ${ages}. Consider ${costPreference || 'any cost'}, ${indoorOutdoor || 'indoor or outdoor'}, and ${timeConstraint} availability. Provide a natural language description explaining why each is a good recommendation. Return ONLY a JSON array that strictly follows the provided schema.`;
+    // Build optimized prompt with clear requirements
+    let prompt = `Find exactly 5 kid-friendly places ${distanceConstraint} ${location} for children aged ${ages}.`;
+    
+    if (requirements.length > 0) {
+        prompt += `\n\nREQUIREMENTS:\n- ${requirements.join('\n- ')}`;
+        prompt += `\n\nDO NOT include places that don't match these requirements.`;
+    }
+    
+    prompt += `\n\nReturn ONLY a JSON array with natural language descriptions explaining why each is a good recommendation.`;
 
     // Use your exact Bubble app JSON structure
     const requestBody = {
@@ -135,10 +150,6 @@ async function getGeminiRecommendations(requestData) {
                         "place_id": {
                             "type": "STRING",
                             "description": "The official Google Maps Place ID (e.g., ChIJrTLr-GyuEmsRBfyQYjg0kM0)."
-                        },
-                        "photo_reference": {
-                            "type": "STRING",
-                            "description": "A valid Google Places Photos API reference token (e.g., 'Aap_uEA7vb0DDYVJWEaX3O-AtYp3').Leave empty if no photo available."
                         }
                     },
                     "required": ["name", "description", "address", "rating", "place_id"]
