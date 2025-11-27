@@ -469,7 +469,7 @@ class DaddyApp {
             '</div>';
 
         // Search for photo using Google Places API after card is created
-        this.searchForPlacePhoto(place.name, place.address, card, place.photo_reference);
+        this.searchForPlacePhoto(place.name, place.address, card, undefined);
 
         return card;
     }
