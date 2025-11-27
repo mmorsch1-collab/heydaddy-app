@@ -21,12 +21,12 @@ export default async function handler(req, res) {
         
         // Check if this is a photo search request
         if (requestData.action === 'searchPhoto') {
-            const { placeName, address } = requestData;
+            const { placeName, address, photoReference } = requestData;
             if (!placeName) {
                 return res.status(400).json({ error: 'Place name is required for photo search' });
             }
             
-            const photoUrl = await searchPlacePhoto(placeName, address);
+            const photoUrl = await searchPlacePhoto(placeName, address, photoReference);
             return res.status(200).json({ photoUrl });
         }
 
@@ -177,37 +177,46 @@ async function getGeminiRecommendations(requestData) {
 }
 
 // Search for place photos using Google Places API
-async function searchPlacePhoto(placeName, address) {
+async function searchPlacePhoto(placeName, address, photoReference) {
     try {
-        // Build search query
-        const query = address ? `${placeName} ${address}` : placeName;
+        let finalPhotoReference = photoReference;
         
-        // Step 1: Find place using Places API Text Search
-        const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-        
-        const searchResponse = await fetch(searchUrl);
-        if (!searchResponse.ok) {
-            throw new Error(`Places search failed: ${searchResponse.status}`);
+        // If we don't have a photoReference from Gemini, search for the place
+        if (!finalPhotoReference || finalPhotoReference.trim() === '') {
+            // Build search query
+            const query = address ? `${placeName} ${address}` : placeName;
+            
+            // Step 1: Find place using Places API Text Search
+            const searchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+            
+            const searchResponse = await fetch(searchUrl);
+            if (!searchResponse.ok) {
+                throw new Error(`Places search failed: ${searchResponse.status}`);
+            }
+            
+            const searchData = await searchResponse.json();
+            
+            if (searchData.results && searchData.results.length > 0) {
+                const place = searchData.results[0];
+                
+                // Get photo reference from search results
+                if (place.photos && place.photos.length > 0) {
+                    finalPhotoReference = place.photos[0].photo_reference;
+                }
+            }
         }
         
-        const searchData = await searchResponse.json();
-        
-        if (searchData.results && searchData.results.length > 0) {
-            const place = searchData.results[0];
+        // If we have a photo reference (either from Gemini or from search), fetch the image
+        if (finalPhotoReference) {
+            const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${finalPhotoReference}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
             
-            // Step 2: If place has photos, fetch and return the actual image data
-            if (place.photos && place.photos.length > 0) {
-                const photoReference = place.photos[0].photo_reference;
-                const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-                
-                // Fetch the actual image and convert to base64
-                const imageResponse = await fetch(photoUrl);
-                if (imageResponse.ok) {
-                    const imageBuffer = await imageResponse.arrayBuffer();
-                    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
-                    const base64Image = Buffer.from(imageBuffer).toString('base64');
-                    return `data:${contentType};base64,${base64Image}`;
-                }
+            // Fetch the actual image and convert to base64
+            const imageResponse = await fetch(photoUrl);
+            if (imageResponse.ok) {
+                const imageBuffer = await imageResponse.arrayBuffer();
+                const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+                const base64Image = Buffer.from(imageBuffer).toString('base64');
+                return `data:${contentType};base64,${base64Image}`;
             }
         }
         

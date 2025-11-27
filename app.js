@@ -478,14 +478,8 @@ class DaddyApp {
     searchForPlacePhoto(placeName, placeAddress, cardElement, photoReference) {
         var self = this;
 
-        // If we have a photo_reference from Gemini, use it directly
-        if (photoReference && photoReference.trim() !== '') {
-            var photoUrl = 'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=' + photoReference + '&key=' + this.getGoogleMapsApiKey();
-            self.updatePlaceCardWithPhoto(cardElement, placeName, photoUrl);
-            return;
-        }
-
-        // Use our serverless function to search for photos
+        // Always use serverless function to avoid CORS issues
+        // Pass photoReference if we have it from Gemini to save API calls
         fetch('/api/getRecommendations', {
             method: 'POST',
             headers: {
@@ -494,7 +488,8 @@ class DaddyApp {
             body: JSON.stringify({
                 action: 'searchPhoto',
                 placeName: placeName,
-                address: placeAddress
+                address: placeAddress,
+                photoReference: photoReference || null
             })
         })
         .then(function(response) {
