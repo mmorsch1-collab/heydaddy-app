@@ -236,6 +236,11 @@ class DaddyApp {
             distance: document.getElementById('distance').value
         };
 
+        // For "Show more", add list of already displayed places to exclude
+        if (isShowMore && this.state.displayedPlaces.length > 0) {
+            requestData.excludePlaces = this.state.displayedPlaces;
+        }
+
         // Call serverless function for recommendations
         this.callRecommendationsAPI(requestData)
         .then(function(results) {
@@ -261,7 +266,7 @@ class DaddyApp {
 
     // Call recommendations API using serverless function
     callRecommendationsAPI(requestData) {
-        return fetch('/api/getRecommendations', {
+        return fetch('https://www.heydaddy.io/api/getRecommendations', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -480,7 +485,7 @@ class DaddyApp {
 
         // Always use serverless function to avoid CORS issues
         // Pass photoReference if we have it from Gemini to save API calls
-        fetch('/api/getRecommendations', {
+        fetch('https://www.heydaddy.io/api/getRecommendations', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -522,22 +527,64 @@ class DaddyApp {
     // Update place card with photo URL (from serverless function)
     updatePlaceCardWithPhoto(cardElement, placeName, photoUrl) {
         var placeholder = cardElement.querySelector('.place-image-placeholder');
+        
         if (placeholder && photoUrl) {
             var img = document.createElement('img');
-            img.src = photoUrl;
             img.alt = placeName;
             img.className = 'place-image';
             img.loading = 'lazy';
+            img.style.maxWidth = '100%';
+            img.style.height = 'auto';
+            img.style.display = 'block';
             
+            // Set onload/onerror handlers before setting src
             img.onload = function() {
                 placeholder.style.display = 'none';
                 cardElement.insertBefore(img, cardElement.firstChild);
             };
             
             img.onerror = function() {
-                // Keep placeholder if image fails to load
-                console.log('Photo failed to load for:', placeName);
+                // Keep placeholder on error
             };
+            
+            img.src = photoUrl;
+            
+            // Handle Base64 images that load synchronously
+            setTimeout(function() {
+                if (img.complete && img.naturalWidth > 0) {
+                    placeholder.style.display = 'none';
+                    cardElement.insertBefore(img, cardElement.firstChild);
+                }
+            }, 10);
+            
+            // Force display after 100ms if not already shown
+            setTimeout(function() {
+                if (cardElement.querySelector('.place-image-placeholder').style.display !== 'none') {
+                    try {
+                        // Validate Base64 data
+                        var base64Data = photoUrl.split(',')[1];
+                        atob(base64Data);
+                        
+                        // Force display
+                        placeholder.style.display = 'none';
+                        cardElement.insertBefore(img, cardElement.firstChild);
+                        
+                    } catch(e) {
+                        // Fallback to CSS background
+                        var bgDiv = document.createElement('div');
+                        bgDiv.className = 'place-image';
+                        bgDiv.style.backgroundImage = 'url(' + photoUrl + ')';
+                        bgDiv.style.backgroundSize = 'cover';
+                        bgDiv.style.backgroundPosition = 'center';
+                        bgDiv.style.width = '100%';
+                        bgDiv.style.height = '200px';
+                        bgDiv.style.display = 'block';
+                        
+                        placeholder.style.display = 'none';
+                        cardElement.insertBefore(bgDiv, cardElement.firstChild);
+                    }
+                }
+            }, 100);
         }
     }
 

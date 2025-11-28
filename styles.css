@@ -170,9 +170,16 @@ body {
 }
 
 .optional-filters.show {
-    max-height: 300px;
+    max-height: 500px;
     opacity: 1;
     margin-bottom: 20px;
+}
+
+/* Mobile-specific more options height */
+@media (max-width: 414px) {
+    .optional-filters.show {
+        max-height: 600px;
+    }
 }
 
 /* Form Button Group */
@@ -207,7 +214,18 @@ body {
 /* Loading State */
 .loading-state {
     text-align: center;
-    padding: 40px 20px;
+    padding: 20px 20px;
+}
+
+/* Mobile-specific loading state optimization */
+@media (max-width: 414px) {
+    .loading-state {
+        padding: 12px 20px;
+    }
+    
+    .results-section {
+        margin-top: 4px;
+    }
 }
 
 .spinner {
