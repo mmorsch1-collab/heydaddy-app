@@ -17,6 +17,7 @@ class DaddyApp {
         this.bindEvents();
         this.loadUserDataToForm();
         this.updateUI();
+        this.attemptAutoLocation();
     }
 
     // Load user data from localStorage
@@ -592,6 +593,112 @@ class DaddyApp {
     getGoogleMapsApiKey() {
         // This will be set as a global variable or from environment
         return 'AIzaSyDr4zafXO0Y5zx681q8f3XKwtRdCJ3H42I';
+    }
+
+    // Attempt to automatically detect and fill user's current location
+    attemptAutoLocation() {
+        var self = this;
+        var locationInput = document.getElementById('locationInput');
+        
+        // Only attempt auto-location if field is empty and we haven't stored a location
+        if (locationInput.value || this.state.currentUser.home_location) {
+            return;
+        }
+        
+        // Check if geolocation is supported
+        if (!navigator.geolocation) {
+            console.log('Geolocation not supported by this browser');
+            return;
+        }
+        
+        // Show loading state in location input
+        var originalPlaceholder = locationInput.placeholder;
+        locationInput.placeholder = 'Detecting location...';
+        locationInput.disabled = true;
+        
+        // Get current position
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                // Success - get coordinates and reverse geocode
+                self.reverseGeocode(position.coords.latitude, position.coords.longitude)
+                .then(function(zipCode) {
+                    if (zipCode) {
+                        locationInput.value = zipCode;
+                        self.state.currentUser.home_location = zipCode;
+                        localStorage.setItem('daddy_app_home_location', zipCode);
+                    }
+                })
+                .catch(function(error) {
+                    console.log('Reverse geocoding failed:', error);
+                })
+                .finally(function() {
+                    // Restore input state
+                    locationInput.placeholder = originalPlaceholder;
+                    locationInput.disabled = false;
+                });
+            },
+            function(error) {
+                // Error getting location
+                console.log('Geolocation error:', error.message);
+                
+                // Restore input state
+                locationInput.placeholder = originalPlaceholder;
+                locationInput.disabled = false;
+            },
+            {
+                timeout: 10000,
+                maximumAge: 300000, // 5 minutes
+                enableHighAccuracy: false
+            }
+        );
+    }
+
+    // Reverse geocode coordinates to get zip code
+    reverseGeocode(lat, lng) {
+        return fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${this.getGoogleMapsApiKey()}`)
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Geocoding API error: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.results && data.results.length > 0) {
+                // Extract zip code from address components
+                var addressComponents = data.results[0].address_components;
+                for (var i = 0; i < addressComponents.length; i++) {
+                    var component = addressComponents[i];
+                    if (component.types.includes('postal_code')) {
+                        return component.long_name;
+                    }
+                }
+                
+                // Fallback: try to extract from formatted_address
+                var address = data.results[0].formatted_address;
+                var zipMatch = address.match(/\b\d{5}(?:-\d{4})?\b/);
+                if (zipMatch) {
+                    return zipMatch[0];
+                }
+                
+                // If no zip code, use city, state format
+                var city = '';
+                var state = '';
+                for (var i = 0; i < addressComponents.length; i++) {
+                    var component = addressComponents[i];
+                    if (component.types.includes('locality')) {
+                        city = component.long_name;
+                    } else if (component.types.includes('administrative_area_level_1')) {
+                        state = component.short_name;
+                    }
+                }
+                
+                if (city && state) {
+                    return city + ', ' + state;
+                }
+            }
+            
+            throw new Error('No address found');
+        });
     }
 
     // Open Google Maps for a specific place using search API format
